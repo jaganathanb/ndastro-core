@@ -99,7 +99,7 @@ The library automatically downloads and caches the required JPL ephemeris data (
 - **macOS**: `~/Library/Application Support/ndastro`
 - **Linux**: `~/.local/share/ndastro`
 
-This data is approximately 3 MB and only needs to be downloaded once.
+This data is approximately 150 MB and only needs to be downloaded once.
 
 ## API Reference
 
