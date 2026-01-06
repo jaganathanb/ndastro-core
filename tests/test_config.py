@@ -11,6 +11,7 @@ from ndastro_engine.config import ConfigurationManager, eph, ts
 class TestConfigurationManager:
     """Test cases for ConfigurationManager class."""
 
+    @pytest.mark.unit
     @patch("ndastro_engine.config.get_app_data_dir")
     @patch("ndastro_engine.config.Path")
     @patch("ndastro_engine.config.Loader")
@@ -45,6 +46,7 @@ class TestConfigurationManager:
         assert config.ts == mock_timescale
         assert config.eph == mock_ephemeris
 
+    @pytest.mark.unit
     @patch("ndastro_engine.config.get_app_data_dir")
     @patch("ndastro_engine.config.Path")
     @patch("ndastro_engine.config.Loader")
@@ -61,6 +63,7 @@ class TestConfigurationManager:
         with pytest.raises(RuntimeError, match="Failed to initialize astronomical data"):
             ConfigurationManager()
 
+    @pytest.mark.unit
     @patch("ndastro_engine.config.get_app_data_dir")
     @patch("ndastro_engine.config.Path")
     @patch("ndastro_engine.config.Loader")
@@ -77,11 +80,13 @@ class TestConfigurationManager:
         with pytest.raises(RuntimeError, match="Failed to initialize astronomical data"):
             ConfigurationManager()
 
+    @pytest.mark.unit
     def test_ndastro_config_singleton_exists(self) -> None:
         """Test that ndastro_config singleton is instantiated."""
         assert ts is not None
         assert eph is not None
 
+    @pytest.mark.unit
     def test_ndastro_config_has_required_attributes(self) -> None:
         """Test that ndastro_config has required attributes."""
         # ts should have timescale methods

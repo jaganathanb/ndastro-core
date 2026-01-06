@@ -1,6 +1,6 @@
 [project]
 name = "ndastro-engine"
-version = "0.3.0"
+version = "0.3.1"
 description = "A modern vedic astrology calculation engine"
 authors = [
     {name = "Jaganathan, B", email = "jaganathan.eswaran@gmail.com"}
@@ -42,6 +42,8 @@ Changelog = "https://github.com/jaganathanb/ndastro-core/releases"
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.2",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.6.1",
     "ruff>=0.14.10",
     "mypy>=1.19.1",
 ]
@@ -78,7 +80,52 @@ force_grid_wrap = 0
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
+addopts = [
+    "-ra",
+    "-q",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=ndastro_engine",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
 testpaths = [
     "tests"
 ]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["ndastro_engine"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/.*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+[tool.poetry.group.dev.dependencies]
+pytest-xdist = "3.6.1"
+pytest-cov = "6.0.0"
+

@@ -1,0 +1,18 @@
+# Coverage configuration file (optional, main config is in pyproject.toml)
+# This file can be used for additional coverage settings if needed
+
+[run]
+source = ndastro_engine
+branch = True
+omit = 
+    */tests/*
+    */__pycache__/*
+    */.*
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov

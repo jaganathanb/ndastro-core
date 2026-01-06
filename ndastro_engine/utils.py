@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from ndastro_engine.constants import OS_MAC, OS_WIN
+from ndastro_engine.constants import DEGREE_MAX, OS_MAC, OS_WIN
 
 
 def get_app_data_dir(appname: str) -> Path:
@@ -35,3 +35,16 @@ def get_app_data_dir(appname: str) -> Path:
     # Linux and other Unix-like systems (uses XDG spec fallback)
     data_home = os.getenv("XDG_DATA_HOME", "~/.local/share")
     return Path(data_home).expanduser() / appname
+
+
+def normalize_degree(degree: float) -> float:
+    """Normalize the degree to be within 0-360.
+
+    Args:
+        degree (float): The degree to normalize.
+
+    Returns:
+        float: The normalized degree.
+
+    """
+    return (degree % DEGREE_MAX + DEGREE_MAX) % DEGREE_MAX

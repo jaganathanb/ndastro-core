@@ -7,12 +7,13 @@ from unittest.mock import patch
 import pytest
 
 from ndastro_engine.constants import OS_LINUX, OS_MAC, OS_WIN
-from ndastro_engine.utils import get_app_data_dir
+from ndastro_engine.utils import get_app_data_dir, normalize_degree
 
 
 class TestGetAppDataDir:
     """Test cases for get_app_data_dir function."""
 
+    @pytest.mark.unit
     @pytest.mark.parametrize(
         ("platform", "expected_path"),
         [
@@ -27,6 +28,7 @@ class TestGetAppDataDir:
             result = get_app_data_dir("testapp")
             assert result == expected_path
 
+    @pytest.mark.unit
     def test_get_app_data_dir_windows(self) -> None:
         """Test get_app_data_dir on Windows platform."""
         with patch.object(sys, "platform", OS_WIN):
@@ -35,6 +37,7 @@ class TestGetAppDataDir:
             assert "Local" in str(result)
             assert result.name == "myapp"
 
+    @pytest.mark.unit
     def test_get_app_data_dir_mac(self) -> None:
         """Test get_app_data_dir on macOS platform."""
         with patch.object(sys, "platform", OS_MAC):
@@ -43,6 +46,7 @@ class TestGetAppDataDir:
             assert "Application Support" in str(result)
             assert result.name == "myapp"
 
+    @pytest.mark.unit
     def test_get_app_data_dir_linux_default(self) -> None:
         """Test get_app_data_dir on Linux with default XDG path."""
         mock_home = Path("/home/testuser")
@@ -64,6 +68,7 @@ class TestGetAppDataDir:
             expected = mock_home / ".local" / "share" / "myapp"
             assert result == expected
 
+    @pytest.mark.unit
     def test_get_app_data_dir_linux_custom_xdg(self) -> None:
         """Test get_app_data_dir on Linux with custom XDG_DATA_HOME."""
         custom_path = "/custom/data/path"
@@ -77,14 +82,118 @@ class TestGetAppDataDir:
             expected = Path(custom_path) / "myapp"
             assert result == expected
 
+    @pytest.mark.unit
     def test_get_app_data_dir_returns_path_object(self) -> None:
         """Test that get_app_data_dir returns a Path object."""
         result = get_app_data_dir("testapp")
         assert isinstance(result, Path)
 
+    @pytest.mark.unit
     def test_get_app_data_dir_with_special_characters(self) -> None:
         """Test get_app_data_dir with app name containing special characters."""
         app_name = "my-app_2024"
         result = get_app_data_dir(app_name)
         assert result.name == app_name
         assert isinstance(result, Path)
+
+
+class TestNormalizeDegree:
+    """Test cases for normalize_degree function."""
+
+    @pytest.mark.unit
+    def test_normalize_degree_zero(self) -> None:
+        """Test that 0 degrees remains 0."""
+        result = normalize_degree(0.0)
+        assert result == 0.0
+
+    @pytest.mark.unit
+    def test_normalize_degree_valid_range(self) -> None:
+        """Test values already in valid range (0-360)."""
+        test_values = [0.0, 45.0, 90.0, 180.0, 270.0, 359.99]
+        for value in test_values:
+            result = normalize_degree(value)
+            assert result == value
+
+    @pytest.mark.unit
+    def test_normalize_degree_exactly_360(self) -> None:
+        """Test that exactly 360 degrees normalizes to 0."""
+        result = normalize_degree(360.0)
+        assert result == 0.0
+
+    @pytest.mark.unit
+    def test_normalize_degree_above_360(self) -> None:
+        """Test values above 360 degrees."""
+        assert normalize_degree(361.0) == 1.0
+        assert normalize_degree(450.0) == 90.0
+        assert normalize_degree(720.0) == 0.0
+        assert normalize_degree(725.5) == 5.5
+
+    @pytest.mark.unit
+    def test_normalize_degree_negative_values(self) -> None:
+        """Test negative degree values."""
+        assert normalize_degree(-1.0) == 359.0
+        assert normalize_degree(-90.0) == 270.0
+        assert normalize_degree(-180.0) == 180.0
+        assert normalize_degree(-270.0) == 90.0
+        assert normalize_degree(-359.0) == 1.0
+
+    @pytest.mark.unit
+    def test_normalize_degree_large_positive(self) -> None:
+        """Test very large positive values."""
+        assert normalize_degree(1080.0) == 0.0  # 3 full rotations
+        assert normalize_degree(1125.0) == 45.0
+        assert abs(normalize_degree(3600.0) - 0.0) < 0.0001
+
+    @pytest.mark.unit
+    def test_normalize_degree_large_negative(self) -> None:
+        """Test very large negative values."""
+        assert normalize_degree(-360.0) == 0.0
+        assert normalize_degree(-720.0) == 0.0
+        assert normalize_degree(-450.0) == 270.0
+
+    @pytest.mark.unit
+    def test_normalize_degree_decimal_precision(self) -> None:
+        """Test that decimal precision is maintained."""
+        result = normalize_degree(45.123456)
+        assert abs(result - 45.123456) < 0.0001
+
+        result = normalize_degree(370.987654)
+        assert abs(result - 10.987654) < 0.0001
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "input_deg,expected",
+        [
+            (0.0, 0.0),
+            (180.0, 180.0),
+            (360.0, 0.0),
+            (540.0, 180.0),
+            (-180.0, 180.0),
+            (-360.0, 0.0),
+            (365.5, 5.5),
+            (-5.5, 354.5),
+        ],
+    )
+    def test_normalize_degree_parametrized(self, input_deg: float, expected: float) -> None:
+        """Test normalize_degree with various inputs."""
+        result = normalize_degree(input_deg)
+        assert abs(result - expected) < 0.0001
+
+    @pytest.mark.unit
+    def test_normalize_degree_output_range(self) -> None:
+        """Test that output is always in valid range [0, 360)."""
+        test_values = [-1000.0, -500.0, -360.0, -180.0, -1.0, 0.0, 1.0, 180.0, 359.0, 360.0, 361.0, 500.0, 1000.0]
+
+        for value in test_values:
+            result = normalize_degree(value)
+            assert 0.0 <= result < 360.0, f"normalize_degree({value}) = {result} is out of range"
+
+    @pytest.mark.unit
+    def test_normalize_degree_idempotent(self) -> None:
+        """Test that normalizing twice gives same result."""
+        test_values = [370.0, -10.0, 725.0]
+
+        for value in test_values:
+            first = normalize_degree(value)
+            second = normalize_degree(first)
+            assert first == second

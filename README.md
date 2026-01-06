@@ -4,16 +4,20 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A modern Python library for astronomical calculations, built on top of [Skyfield](https://rhodesmill.org/skyfield/). ndastro-engine provides a clean, intuitive API for computing sunrise, sunset, and other astronomical events for any location on Earth.
+A modern Python library for Vedic and Western astronomical calculations, built on top of [Skyfield](https://rhodesmill.org/skyfield/). ndastro-engine provides a clean, intuitive API for computing planetary positions, sunrise/sunset times, lunar nodes (Rahu/Kethu), ascendant, and other astronomical events for any location on Earth.
 
 ## Features
 
-- 🌅 **Sunrise & Sunset Calculations** - Accurate sunrise and sunset times for any location
+- 🪐 **Planetary Positions** - Calculate positions for Sun, Moon, Mars, Mercury, Jupiter, Venus, and Saturn
+- 🌅 **Sunrise & Sunset** - Accurate sunrise and sunset times for any location
+- 🌙 **Lunar Nodes** - Rahu (North Node) and Kethu (South Node) calculations
+- ⬆️ **Ascendant Calculation** - Compute rising sign (Lagna) for any time and location
+- 🔄 **Ayanamsa Support** - Convert between tropical and sidereal (Vedic) zodiac systems
 - 🌍 **WGS84 Coordinates** - Support for standard latitude/longitude coordinates
-- 📅 **Date-based Queries** - Calculate astronomical events for any date
+- 📅 **Date-based Queries** - Calculate astronomical events for any date and time
 - 🎯 **High Precision** - Powered by Skyfield using JPL ephemeris data (DE440t)
 - 🔧 **Easy Configuration** - Automatic ephemeris data management
-- 📦 **Modern Python** - Type hints, clean API, and follows best practices
+- 📦 **Modern Python** - Full type hints, clean API, and comprehensive test coverage
 
 ## Installation
 
@@ -33,21 +37,80 @@ pip install ndastro-engine[dev]
 
 ```python
 from datetime import datetime
-from ndastro_engine.astro_engine import get_sunrise_sunset
+import pytz
+from ndastro_engine.core import get_planet_position, get_all_planet_positions, get_sunrise_sunset
+from ndastro_engine.enums.planet_enum import Planets
 
 # Define location (New York City)
 latitude = 40.7128
 longitude = -74.0060
+time = datetime(2026, 1, 6, 12, 0, 0, tzinfo=pytz.UTC)
 
-# Get sunrise and sunset for today
-today = datetime.now()
-sunrise, sunset = get_sunrise_sunset(latitude, longitude, today)
+# Get Sun's position
+lat, lon, dist = get_planet_position(Planets.SUN, latitude, longitude, time)
+print(f"Sun: Longitude {lon:.2f}°, Latitude {lat:.4f}°, Distance {dist:.4f} AU")
 
+# Get all planetary positions
+positions = get_all_planet_positions(latitude, longitude, time)
+for planet, (lat, lon, dist) in positions.items():
+    print(f"{planet.name}: {lon:.2f}°")
+
+# Get sunrise and sunset
+sunrise, sunset = get_sunrise_sunset(latitude, longitude, time)
 print(f"Sunrise: {sunrise}")
 print(f"Sunset: {sunset}")
 ```
 
 ## Usage Examples
+
+### Planetary Position Calculation
+
+```python
+from datetime import datetime
+import pytz
+from ndastro_engine.core import get_planet_position
+from ndastro_engine.enums.planet_enum import Planets
+
+# Location: Mumbai, India
+lat = 19.0760
+lon = 72.8777
+time = datetime(2026, 1, 15, 12, 0, 0, tzinfo=pytz.UTC)
+
+# Get Jupiter's position (tropical)
+lat_jupiter, lon_jupiter, dist_jupiter = get_planet_position(
+    Planets.JUPITER, lat, lon, time
+)
+print(f"Jupiter (Tropical): {lon_jupiter:.2f}°")
+
+# Get Jupiter's position (sidereal/Vedic with Lahiri ayanamsa)
+ayanamsa = 24.19  # Lahiri ayanamsa for 2026
+lat_jupiter, lon_jupiter, dist_jupiter = get_planet_position(
+    Planets.JUPITER, lat, lon, time, ayanamsa=ayanamsa
+)
+print(f"Jupiter (Sidereal): {lon_jupiter:.2f}°")
+```
+
+### Get All Planetary Positions at Once
+
+```python
+from datetime import datetime
+import pytz
+from ndastro_engine.core import get_all_planet_positions
+from ndastro_engine.enums.planet_enum import Planets
+
+lat = 51.5074  # London
+lon = -0.1278
+time = datetime(2026, 3, 20, 0, 0, 0, tzinfo=pytz.UTC)
+
+# Get positions for all planets including Rahu, Kethu, and Ascendant
+positions = get_all_planet_positions(lat, lon, time)
+
+for planet, (latitude, longitude, distance) in positions.items():
+    if planet in [Planets.RAHU, Planets.KETHU, Planets.ASCENDANT]:
+        print(f"{planet.name}: {longitude:.2f}°")
+    else:
+        print(f"{planet.name}: {longitude:.2f}° (Distance: {distance:.4f} AU)")
+```
 
 ### Basic Sunrise/Sunset Calculation
 
@@ -103,29 +166,83 @@ This data is approximately 150 MB and only needs to be downloaded once.
 
 ## API Reference
 
-### `get_sunrise_sunset(lat, lon, given_time)`
+### `get_planet_position(planet, lat, lon, given_time, ayanamsa=None)`
 
-Calculate sunrise and sunset times for a specific location and date.
+Calculate the position of a specific planet.
 
 **Parameters:**
-- `lat` (Angle): Latitude of the location in degrees
-- `lon` (Angle): Longitude of the location in degrees  
-- `given_time` (datetime): The date for which to calculate sunrise/sunset
+- `planet` (Planets): The planet enum (e.g., Planets.SUN, Planets.MOON)
+- `lat` (float): Latitude of the observer in decimal degrees
+- `lon` (float): Longitude of the observer in decimal degrees
+- `given_time` (datetime): The datetime of observation in UTC
+- `ayanamsa` (float, optional): Ayanamsa value for sidereal calculations
 
 **Returns:**
-- `tuple[datetime, datetime]`: A tuple containing (sunrise, sunset) as UTC datetime objects
+- `tuple[float, float, float]`: (latitude, longitude, distance) - Planet's ecliptic latitude in degrees, ecliptic longitude in degrees, distance in AU
 
 **Example:**
 ```python
 from datetime import datetime
-from skyfield.units import Angle
-from ndastro_engine.astro_engine import get_sunrise_sunset
+import pytz
+from ndastro_engine.core import get_planet_position
+from ndastro_engine.enums.planet_enum import Planets
 
-lat = Angle(degrees=34.0522)  # Los Angeles
-lon = Angle(degrees=-118.2437)
-date = datetime(2026, 3, 20)
+lat, lon, dist = get_planet_position(
+    Planets.MARS, 
+    34.0522, -118.2437,  # Los Angeles
+    datetime(2026, 3, 20, tzinfo=pytz.UTC),
+    ayanamsa=24.19  # Optional: for sidereal zodiac
+)
+```
 
-sunrise, sunset = get_sunrise_sunset(lat, lon, date)
+### `get_all_planet_positions(lat, lon, given_time, ayanamsa=None)`
+
+Calculate positions for all planets, including Rahu, Kethu, and Ascendant.
+
+**Parameters:**
+- `lat` (float): Latitude of the observer in decimal degrees
+- `lon` (float): Longitude of the observer in decimal degrees
+- `given_time` (datetime): The datetime of observation in UTC
+- `ayanamsa` (float, optional): Ayanamsa value for sidereal calculations
+
+**Returns:**
+- `dict[Planets, tuple[float, float, float]]`: Dictionary mapping each planet to its (latitude, longitude, distance)
+
+**Example:**
+```python
+from datetime import datetime
+import pytz
+from ndastro_engine.core import get_all_planet_positions
+
+positions = get_all_planet_positions(
+    12.97, 77.59,  # Bangalore, India
+    datetime(2026, 1, 15, tzinfo=pytz.UTC)
+)
+```
+
+### `get_sunrise_sunset(lat, lon, given_time, elevation=914)`
+
+Calculate sunrise and sunset times for a specific location and date.
+
+**Parameters:**
+- `lat` (float): Latitude of the location in decimal degrees
+- `lon` (float): Longitude of the location in decimal degrees
+- `given_time` (datetime): The date for which to calculate sunrise/sunset
+- `elevation` (float, optional): Elevation in meters (default: 914m)
+
+**Returns:**
+- `tuple[datetime, datetime]`: (sunrise, sunset) as UTC datetime objects
+
+**Example:**
+```python
+from datetime import datetime
+import pytz
+from ndastro_engine.core import get_sunrise_sunset
+
+sunrise, sunset = get_sunrise_sunset(
+    34.0522, -118.2437,  # Los Angeles
+    datetime(2026, 3, 20, tzinfo=pytz.UTC)
+)
 ```
 
 ## Requirements
@@ -145,30 +262,86 @@ cd ndastro-core
 
 # Install with development dependencies
 pip install -e .[dev]
+
+# Verify installation by running tests
+pytest tests/ -v
 ```
+
+**Development Dependencies Include:**
+- pytest>=9.0.2 - Testing framework
+- pytest-cov>=6.0.0 - Coverage reporting
+- pytest-xdist>=3.6.1 - Parallel test execution
+- ruff>=0.14.10 - Linting and formatting
+- mypy>=1.19.1 - Type checking
 
 ### Running Tests
 
+The project includes comprehensive test coverage with multiple ways to run tests:
+
 ```bash
-pytest
+# Run all tests with coverage (recommended)
+pytest tests/
+
+# Or using the test runner scripts:
+# PowerShell (Windows)
+.\run_tests.ps1
+
+# Batch (Windows)
+run_tests.bat coverage
+
+# Make (cross-platform)
+make test
 ```
+
+**Test Modes:**
+
+```bash
+# Run only unit tests
+pytest -m unit tests/
+
+# Run fast tests (exclude slow tests)
+pytest -m "not slow" tests/
+
+# Run with verbose output
+pytest tests/ -v
+
+# Run in parallel (faster for large test suites)
+pytest -n 4 tests/
+
+# Generate HTML coverage report
+pytest tests/ --cov=ndastro_engine --cov-report=html
+# Then open htmlcov/index.html in your browser
+```
+
+**Test Coverage:**
+- 69 total unit tests covering all core functionality
+- Parametrized tests for comprehensive edge case coverage
+- Test markers for easy filtering (unit, integration, slow)
+- Automated coverage reporting
+
+For detailed testing documentation, see [TESTING.md](TESTING.md).
 
 ### Code Quality
 
 The project uses:
+- **pytest** for testing with coverage reporting
+- **pytest-cov** for coverage analysis
+- **pytest-xdist** for parallel test execution
 - **ruff** for linting and formatting
 - **mypy** for type checking
-- **pytest** for testing
 
 ```bash
 # Run linter
-ruff check .
+ruff check ndastro_engine/ tests/
 
 # Run type checker
-mypy ndastro_engine
+mypy ndastro_engine/
 
 # Format code
-ruff format .
+ruff format ndastro_engine/ tests/
+
+# Run all quality checks
+make lint && make type-check && make test
 ```
 
 ## Contributing
