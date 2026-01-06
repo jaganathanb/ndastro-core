@@ -41,6 +41,22 @@ def get_planet_position(planet: Planets, lat: float, lon: float, given_time: dat
 
     """
     t = ts.utc(given_time)
+
+    if planet in (Planets.RAHU, Planets.KETHU):
+        pos = _get_lunar_node_positions(given_time)
+        return (
+            0.0,
+            pos[0] if planet == Planets.RAHU else pos[1],
+            0.0,
+        )
+
+    if planet == Planets.ASCENDANT:
+        asc_lon = _get_ascendent_position(lat, lon, given_time, ayanamsa)
+        return (0.0, asc_lon, 0.0)
+
+    if planet == Planets.EMPTY:
+        return (0.0, 0.0, 0.0)
+
     observer: VectorSum = eph["earth"] + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon, elevation_m=914)
     astrometric = cast("Barycentric", observer.at(t)).observe(eph[planet.code]).apparent()
 
@@ -71,19 +87,8 @@ def get_all_planet_positions(
     """
     positions: dict[Planets, tuple[float, float, float]] = {}
     for planet in Planets:
-        if planet in (Planets.RAHU, Planets.KETHU):
-            positions[planet] = (
-                0.0,
-                _get_lunar_node_positions(given_time)[0] if planet == Planets.RAHU else normalize_degree(positions[Planets.RAHU][1] + 180),
-                0.0,
-            )
-        elif planet == Planets.ASCENDANT:
-            asc_lon = _get_ascendent_position(lat, lon, given_time, ayanamsa)
-            positions[planet] = (0.0, asc_lon, 0.0)
-        elif planet == Planets.EMPTY:
-            continue
-        else:
-            positions[planet] = get_planet_position(planet, lat, lon, given_time, ayanamsa)
+        positions[planet] = get_planet_position(planet, lat, lon, given_time, ayanamsa)
+
     return positions
 
 
