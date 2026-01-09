@@ -60,7 +60,8 @@ def get_planet_position(planet: Planets, lat: float, lon: float, given_time: dat
     if planet == Planets.EMPTY:
         return (0.0, 0.0, 0.0)
 
-    observer: VectorSum = eph["earth"] + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon, elevation_m=914)
+    eth = eph["earth"]
+    observer: VectorSum = eth + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon, elevation_m=914)
     astrometric = cast("Barycentric", observer.at(t)).observe(eph[planet.code]).apparent()
 
     latitude, longitude, distance = astrometric.frame_latlon(ecliptic_frame)

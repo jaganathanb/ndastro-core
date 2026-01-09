@@ -13,18 +13,23 @@ based on Julian centuries from the J2000.0 epoch.
 
 import datetime
 
-from ndastro_engine.constants import J2000_JD, JULIAN_CENTURY_DAYS
+from ndastro_engine.constants import (
+    AYANAMSA_AT_J2000,
+    CENTURY_19,
+    CENTURY_20,
+    CENTURY_21,
+    DEG_PER_JCENTURY,
+    DEG_PER_SQUARE_JCENTURY,
+)
 from ndastro_engine.core import ts
 
 
 def get_lahiri_ayanamsa(date: datetime.datetime) -> float:
     """Calculate the Lahiri Ayanamsa for a given date."""
     # Constants in the Lahiri Ayanamsa formula
-    # At J2000 (2000-01-01), Lahiri ayanamsa = 23:51:00 = 23.85°
-    # At 2100-01-01, Lahiri ayanamsa = 25:15:00 = 25.25° (astro-seek.com)
-    c0 = 23.8500190824  # Constant term adjusted for J2000 epoch
-    c1 = 1.3999090000  # Linear term (degrees per Julian century)
-    c2 = 0.000091  # Quadratic term (degrees per square Julian century)
+    c0 = AYANAMSA_AT_J2000  # Constant term adjusted for J2000 epoch
+    c1 = DEG_PER_JCENTURY  # Linear term (degrees per Julian century)
+    c2 = DEG_PER_SQUARE_JCENTURY  # Quadratic term (degrees per square Julian century)
 
     # Calculate b6
     b6 = _calculate_b6((date.year, date.month, date.day))
@@ -258,21 +263,33 @@ def get_true_pusya_ayanamsa(date: datetime.datetime) -> float:
 
 
 def _calculate_b6(date: tuple[int, int, int]) -> float:
-    """Calculate B6 parameter (Julian centuries from J2000.0).
-
-    B6 represents the time in Julian centuries from the J2000.0 epoch.
-    At J2000.0 (2000-01-01 12:00 TT), B6 = 0.0
-
-    Args:
-        date: Tuple of (year, month, day)
-
-    Returns:
-        Number of Julian centuries from J2000.0 epoch
-
-    """
+    """Calculate B6 parameter for Julian Date."""
     # Calculate Julian Date using Skyfield
     t = ts.utc(*date)
     jd = t.tt  # Julian Date in Terrestrial Time
+    # Compute B6 parameter
+    return (jd - _get_days_since_julian(CENTURY_19)) / _get_days_in_julian_century(CENTURY_20, CENTURY_21)
 
-    # Compute B6 parameter: centuries from J2000.0 epoch
-    return (jd - J2000_JD) / JULIAN_CENTURY_DAYS
+
+def _get_days_in_julian_century(start_year: int, end_year: int) -> float:
+    """Calculate the number of days in a Julian century."""
+    # Define the start of a Julian century
+    start = ts.tt(start_year, 1, 1, 12)  # J2000.0 epoch (2451545.0 JD)
+
+    # Define the end of the Julian century (100 Julian years later)
+    end = ts.tt(end_year, 1, 1, 12)  # 2100 January 1, 12:00 TT
+
+    # Calculate the Julian Dates
+    jd_start = start.tt  # Julian Date at J2000.0
+    jd_end = end.tt  # Julian Date at 2100 January 1
+
+    # Compute the number of days in the century
+    return jd_end - jd_start
+
+
+def _get_days_since_julian(century: int) -> float:
+    """Calculate the number of days in a Julian century given."""
+    # Define the start of a Julian century
+    start = ts.tt(century, 1, 1, 12)  # J2000.0 epoch (2451545.0 JD)
+
+    return start.tt
