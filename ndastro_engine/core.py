@@ -1,11 +1,4 @@
-"""Core astronomical calculation functions for the ndastro engine.
-
-This module provides functions for calculating:
-- Planet positions (tropical and sidereal)
-- Ascendant position
-- Lunar node positions (Rahu and Kethu)
-- Sunrise and sunset times
-"""
+"""Core functions for astronomical calculations using Skyfield library."""
 
 from datetime import datetime, timedelta
 from math import atan2, degrees, radians, tan
@@ -18,18 +11,19 @@ from skyfield.framelib import ecliptic_frame
 from skyfield.nutationlib import mean_obliquity
 from skyfield.timelib import Time
 from skyfield.toposlib import wgs84
-from skyfield.units import Angle
 
 from ndastro_engine.config import eph, ts
 from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.models import PlanetPosition
 from ndastro_engine.utils import normalize_degree
 
 if TYPE_CHECKING:
     from skyfield.positionlib import Barycentric
+    from skyfield.units import Angle, Rate
     from skyfield.vectorlib import VectorSum
 
 
-def get_planet_position(planet: Planets, lat: float, lon: float, given_time: datetime, ayanamsa: float | None = None) -> tuple[float, float, float]:
+def get_planet_position(planet: Planets, lat: float, lon: float, given_time: datetime) -> PlanetPosition:
     """Return the tropical position of the planet for the given latitude, longitude, and datetime.
 
     Args:
@@ -37,44 +31,62 @@ def get_planet_position(planet: Planets, lat: float, lon: float, given_time: dat
         lat (float): The latitude of the observer in decimal degrees.
         lon (float): The longitude of the observer in decimal degrees.
         given_time (datetime): The datetime of the observation in UTC.
-        ayanamsa (float | None): The ayanamsa value to adjust the longitude for sidereal calculations.
 
     Returns:
-        tuple[float, float, float]: The tropical latitude, longitude, and distance of the planet.
+        PlanetPosition: The tropical latitude, longitude, distance, and their rates of change of the planet.
 
     """
     t = ts.utc(given_time)
 
     if planet in (Planets.RAHU, Planets.KETHU):
         pos = get_lunar_node_positions(given_time)
-        return (
+        return PlanetPosition(
             0.0,
             pos[0] if planet == Planets.RAHU else pos[1],
+            0.0,
+            0.0,
+            0.0,
             0.0,
         )
 
     if planet == Planets.ASCENDANT:
-        asc_lon = get_ascendent_position(lat, lon, given_time, ayanamsa)
-        return (0.0, asc_lon, 0.0)
+        asc_lon = get_ascendent_position(lat, lon, given_time)
+        return PlanetPosition(
+            0.0,
+            asc_lon,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )
 
     if planet == Planets.EMPTY:
-        return (0.0, 0.0, 0.0)
+        return PlanetPosition(
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )
 
     eth: VectorSum = cast("VectorSum", eph["earth"])
     observer: VectorSum = eth + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon, elevation_m=914)
     astrometric = cast("Barycentric", observer.at(t)).observe(eph[planet.code]).apparent()
 
-    latitude, longitude, distance = astrometric.frame_latlon(ecliptic_frame)
+    latitude, longitude, distance, speed_latitude, speed_longitude, speed_distance = astrometric.frame_latlon_and_rates(ecliptic_frame)
 
-    return cast(
-        "tuple[float, float, float]",
-        (latitude.degrees, longitude.degrees if ayanamsa is None else (cast("float", longitude.degrees) - ayanamsa), distance.au),
+    return PlanetPosition(
+        cast("float", latitude.degrees),
+        cast("float", longitude.degrees),
+        cast("float", distance.au),
+        cast("float", cast("Rate", speed_latitude.degrees).per_day),
+        cast("float", cast("Rate", speed_longitude.degrees).per_day),
+        cast("float", speed_distance.au_per_d),
     )
 
 
-def get_planets_position(
-    planets: list[Planets], lat: float, lon: float, given_time: datetime, ayanamsa: float | None = None
-) -> dict[Planets, tuple[float, float, float]]:
+def get_planets_position(planets: list[Planets], lat: float, lon: float, given_time: datetime) -> dict[Planets, PlanetPosition]:
     """Return the tropical positions of all planets for the given latitude, longitude, and datetime.
 
     Args:
@@ -82,17 +94,15 @@ def get_planets_position(
         lat (float): The latitude of the observer in decimal degrees.
         lon (float): The longitude of the observer in decimal degrees.
         given_time (datetime): The datetime of the observation in UTC.
-        ayanamsa (float | None): The ayanamsa value to adjust the longitude for sidereal calculations.
 
     Returns:
-        dict[Planets, tuple[float, float, float]]: A dictionary mapping each planet to its tropical/sidereal latitude,
-            longitude, and distance. If ayanamsa is provided, then the longitude values are adjusted for sidereal
-            calculations.
+        dict[Planets, PlanetPosition]: A dictionary mapping each planet to its tropical/sidereal latitude,
+            longitude, and distance & their rates of change.
 
     """
-    positions: dict[Planets, tuple[float, float, float]] = {}
+    positions: dict[Planets, PlanetPosition] = {}
     for planet in planets if len(planets) > 0 else Planets:
-        positions[planet] = get_planet_position(planet, lat, lon, given_time, ayanamsa)
+        positions[planet] = get_planet_position(planet, lat, lon, given_time)
 
     return positions
 
@@ -126,14 +136,13 @@ def get_sunrise_sunset(lat: float, lon: float, given_time: datetime, elevation: 
     return cast("tuple[datetime, datetime]", (sunrise.utc_datetime(), sunset.utc_datetime()))
 
 
-def get_ascendent_position(lat: float, lon: float, given_time: datetime, ayanamsa: float | None = None) -> float:
-    """Calculate the tropical/sidereal ascendant.
+def get_ascendent_position(lat: float, lon: float, given_time: datetime) -> float:
+    """Calculate the tropical ascendant.
 
     Args:
         lat (float): The latitude of the observer in decimal degrees.
         lon (float): The longitude of the observer in decimal degrees.
         given_time (datetime): The datetime of the observation.
-        ayanamsa (float | None): The ayanamsa value to adjust the longitude for sidereal calculations.
 
     Returns:
         float: The longitude of the tropical/sidereal ascendant.
@@ -155,7 +164,7 @@ def get_ascendent_position(lat: float, lon: float, given_time: datetime, ayanams
 
     asc = degrees(ascr)
 
-    return normalize_degree(asc if ayanamsa is None else asc - ayanamsa)
+    return normalize_degree(asc)
 
 
 def get_lunar_node_positions(given_time: datetime) -> tuple[float, float]:
@@ -168,7 +177,7 @@ def get_lunar_node_positions(given_time: datetime) -> tuple[float, float]:
         tuple[float, float]: A tuple containing the longitudes of Rahu and Kethu in decimal degrees.
 
     """
-    tm = ts.utc(given_time)
+    tm = ts.from_datetime(given_time)
     ecliptic = inertial_frames["ECLIPJ2000"]
 
     earth = eph["earth"]
@@ -176,7 +185,7 @@ def get_lunar_node_positions(given_time: datetime) -> tuple[float, float]:
     position = cast("VectorSum", (moon - earth)).at(tm)
     elements = osculating_elements_of(position, ecliptic)
 
-    rahu_position = cast("float", cast("Angle", elements.longitude_of_ascending_node).degrees)
+    rahu_position = normalize_degree(cast("float", cast("Angle", elements.longitude_of_ascending_node).degrees))
     kethu_position = normalize_degree(rahu_position + 180)
 
     return rahu_position, kethu_position
@@ -228,9 +237,10 @@ class RetrogradeFunction:
         """
         lon_now = get_planet_position(Planets.from_code(self.planet_name), self.latitude, self.longitude, cast("datetime", t.utc_datetime()))
         lon_prev = get_planet_position(Planets.from_code(self.planet_name), self.latitude, self.longitude, cast("datetime", (t - 1).utc_datetime()))
-        return cast("float", lon_now[1]) < cast(
+
+        return cast("float", lon_now.longitude) < cast(
             "float",
-            lon_prev[1],
+            lon_prev.longitude,
         )  # Retrograde if longitude decreases
 
 
@@ -305,16 +315,16 @@ def find_retrograde_periods(
 def is_planet_in_retrograde(
     check_date: datetime,
     planet_name: str,
-    latitude: Angle,
-    longitude: Angle,
+    latitude: float,
+    longitude: float,
 ) -> tuple[bool, datetime | None, datetime | None]:
     """Check if a planet is in retrograde motion on a specific date.
 
     Args:
         check_date (datetime): The date to check for retrograde motion.
         planet_name (str): The name of the planet to check.
-        latitude (Angle): The latitude of the observation location.
-        longitude (Angle): The longitude of the observation location.
+        latitude (float): The latitude in decimal degrees of the observation location.
+        longitude (float): The longitude in decimal degrees of the observation location.
 
     Returns:
         tuple[bool, datetime | None, datetime | None]: A tuple containing:
@@ -330,8 +340,8 @@ def is_planet_in_retrograde(
             start_date,
             end_date,
             planet_name,
-            cast("float", latitude.degrees),
-            cast("float", longitude.degrees),
+            latitude,
+            longitude,
         )
 
         for period_start, period_end in retrograde_periods:

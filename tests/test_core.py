@@ -4,7 +4,6 @@ from datetime import datetime
 
 import pytest
 import pytz
-from skyfield.units import Angle
 
 from ndastro_engine.core import (
     get_ascendent_position,
@@ -14,37 +13,38 @@ from ndastro_engine.core import (
     is_planet_in_retrograde,
 )
 from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.models import PlanetPosition
 
 
 class TestGetPlanetPosition:
     """Test suite for get_planet_position function."""
 
     @pytest.mark.unit
-    def test_get_planet_position_returns_tuple(self):
-        """Test that get_planet_position returns a tuple of three floats."""
+    def test_get_planet_position_returns_planet_position(self):
+        """Test that get_planet_position returns a PlanetPosition dataclass."""
         result = get_planet_position(planet=Planets.SUN, lat=40.7128, lon=-74.0060, given_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC))
 
-        assert isinstance(result, tuple)
-        assert len(result) == 3
-        assert all(isinstance(x, float) for x in result)
+        assert isinstance(result, PlanetPosition)
+        assert isinstance(result.latitude, float)
+        assert isinstance(result.longitude, float)
+        assert isinstance(result.distance, float)
+        assert isinstance(result.speed_latitude, float)
+        assert isinstance(result.speed_longitude, float)
+        assert isinstance(result.speed_distance, float)
 
     @pytest.mark.unit
     def test_get_planet_position_latitude_range(self):
         """Test that latitude is within valid range (-90 to 90 degrees)."""
-        _, latitude, _ = get_planet_position(
-            planet=Planets.JUPITER, lat=-33.8688, lon=151.2093, given_time=datetime(2024, 3, 20, 6, 0, 0, tzinfo=pytz.UTC)
-        )
+        result = get_planet_position(planet=Planets.JUPITER, lat=-33.8688, lon=151.2093, given_time=datetime(2024, 3, 20, 6, 0, 0, tzinfo=pytz.UTC))
 
-        assert -90 <= latitude <= 90
+        assert -90 <= result.latitude <= 90
 
     @pytest.mark.unit
     def test_get_planet_position_distance_positive(self):
         """Test that distance is always positive."""
-        _, _, distance = get_planet_position(
-            planet=Planets.VENUS, lat=35.6762, lon=139.6503, given_time=datetime(2024, 12, 25, 18, 0, 0, tzinfo=pytz.UTC)
-        )
+        result = get_planet_position(planet=Planets.VENUS, lat=35.6762, lon=139.6503, given_time=datetime(2024, 12, 25, 18, 0, 0, tzinfo=pytz.UTC))
 
-        assert distance > 0
+        assert result.distance > 0
 
     @pytest.mark.unit
     def test_get_planet_position_different_planets(self):
@@ -76,27 +76,62 @@ class TestGetPlanetPosition:
         pos2 = get_planet_position(Planets.SATURN, -33.8688, 151.2093, time)
 
         # Positions may differ slightly due to parallax
-        assert isinstance(pos1, tuple)
-        assert isinstance(pos2, tuple)
+        assert isinstance(pos1, PlanetPosition)
+        assert isinstance(pos2, PlanetPosition)
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
-        ("planet", "longitude", "latitude", "distance", "ayanamsa"),
+        ("planet", "longitude", "latitude", "distance", "speed_latitude", "speed_longitude", "speed_distance"),
         [
-            (Planets.SUN, 279.8051877358686, 0.0006220123496504032, 0.9833628050249553, None),
-            (Planets.SUN, 255.61352106586864, 0.0006220123496504032, 0.9833628050249553, 24.19166667),
+            (
+                Planets.SUN,
+                279.8051877358686,
+                0.0006220123496504032,
+                0.9833628050249553,
+                -0.000554830285817659,
+                1.0340674080547134,
+                9.214610959975152e-06,
+            )
         ],
     )
-    def test_get_planet_position_all_planets(
-        self, planet: Planets, longitude: float, latitude: float, distance: float, ayanamsa: float | None
+    def test_get_planet_position_all_planets(  # noqa: PLR0913
+        self,
+        planet: Planets,
+        longitude: float,
+        latitude: float,
+        distance: float,
+        speed_latitude: float,
+        speed_longitude: float,
+        speed_distance: float,
     ) -> None:
         """Test that function works for all major planets."""
-        lat, lon, dis = get_planet_position(
-            planet=planet, lat=12.97, lon=77.59, given_time=datetime(2023, 12, 31, 18, 30, 0, tzinfo=pytz.UTC), ayanamsa=ayanamsa
-        )
-        assert lat == latitude
-        assert lon == longitude
-        assert dis == distance
+        result = get_planet_position(planet=planet, lat=12.97, lon=77.59, given_time=datetime(2023, 12, 31, 18, 30, 0, tzinfo=pytz.UTC))
+
+        assert result.latitude == latitude
+        assert result.longitude == longitude
+        assert result.distance == distance
+        assert result.speed_latitude == speed_latitude
+        assert result.speed_longitude == speed_longitude
+        assert result.speed_distance == speed_distance
+
+    @pytest.mark.unit
+    def test_get_planet_position_has_speed_attributes(self) -> None:
+        """Test that PlanetPosition includes speed attributes."""
+        result = get_planet_position(planet=Planets.MARS, lat=12.97, lon=77.59, given_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC))
+
+        # Speed attributes should exist and be floats
+        assert isinstance(result.speed_latitude, float)
+        assert isinstance(result.speed_longitude, float)
+        assert isinstance(result.speed_distance, float)
+
+    @pytest.mark.unit
+    def test_get_planet_position_speed_longitude_indicates_motion(self) -> None:
+        """Test that speed longitude indicates planet's motion."""
+        result = get_planet_position(planet=Planets.MERCURY, lat=0.0, lon=0.0, given_time=datetime(2024, 6, 1, 0, 0, 0, tzinfo=pytz.UTC))
+
+        # SpeedLongitude should be non-zero for most planets (they're moving)
+        # Note: This tests the attribute exists and has a value
+        assert isinstance(result.speed_longitude, float)
 
 
 class TestGetSunriseSunset:
@@ -163,14 +198,25 @@ class TestGetAllPlanetPositions:
     @pytest.mark.unit
     def test_get_all_planet_positions_returns_dict(self) -> None:
         """Test that function returns a dictionary."""
-        lat = 12.97
-        lon = 77.59
-        test_time = datetime(2026, 1, 5, 18, 30, 0, tzinfo=pytz.UTC)
+        lat = 12.97166667
+        lon = 77.59361111
+        test_time = datetime(2026, 1, 12, 18, 30, 0, tzinfo=pytz.UTC)
 
         result = get_planets_position([], lat, lon, test_time)
 
         assert isinstance(result, dict)
-        assert len(result) > 0
+        assert len(result) == 11
+
+        assert result[Planets.ASCENDANT].longitude == 197.13930724837974
+        assert result[Planets.SUN].longitude == 292.5613192065848
+        assert result[Planets.MOON].longitude == 226.43748381648348
+        assert result[Planets.MARS].longitude == 291.75343198140524
+        assert result[Planets.MERCURY].longitude == 287.03848290381467
+        assert result[Planets.JUPITER].longitude == 109.78310583323993
+        assert result[Planets.VENUS].longitude == 294.014258990699
+        assert result[Planets.SATURN].longitude == 356.9562483752751
+        assert result[Planets.RAHU].longitude == 339.88525356186483
+        assert result[Planets.KETHU].longitude == 159.88525356186483
 
     @pytest.mark.unit
     def test_get_all_planet_positions_contains_major_planets(self) -> None:
@@ -198,8 +244,8 @@ class TestGetAllPlanetPositions:
             assert planet in result
 
     @pytest.mark.unit
-    def test_get_all_planet_positions_values_are_tuples(self) -> None:
-        """Test that all values are tuples of three floats."""
+    def test_get_all_planet_positions_values_are_planet_positions(self) -> None:
+        """Test that all values are PlanetPosition dataclass instances."""
         lat = 19.0760
         lon = 72.8777
         test_time = datetime(2026, 1, 5, 0, 0, 0, tzinfo=pytz.UTC)
@@ -207,9 +253,13 @@ class TestGetAllPlanetPositions:
         result = get_planets_position([], lat, lon, test_time)
 
         for planet, position in result.items():
-            assert isinstance(position, tuple)
-            assert len(position) == 3
-            assert all(isinstance(x, float) for x in position)
+            assert isinstance(position, PlanetPosition)
+            assert isinstance(position.latitude, float)
+            assert isinstance(position.longitude, float)
+            assert isinstance(position.distance, float)
+            assert isinstance(position.speed_latitude, float)
+            assert isinstance(position.speed_longitude, float)
+            assert isinstance(position.speed_distance, float)
 
     @pytest.mark.unit
     def test_get_all_planet_positions_rahu_kethu_opposite(self) -> None:
@@ -220,8 +270,8 @@ class TestGetAllPlanetPositions:
 
         result = get_planets_position([], lat, lon, test_time)
 
-        rahu_lon = result[Planets.RAHU][1]
-        kethu_lon = result[Planets.KETHU][1]
+        rahu_lon = result[Planets.RAHU].longitude
+        kethu_lon = result[Planets.KETHU].longitude
 
         # Calculate angular difference
         diff = abs(rahu_lon - kethu_lon)
@@ -230,26 +280,6 @@ class TestGetAllPlanetPositions:
             diff = 360 - diff
 
         assert abs(diff - 180) < 0.01, f"Rahu at {rahu_lon}, Kethu at {kethu_lon}"
-
-    @pytest.mark.unit
-    def test_get_all_planet_positions_with_ayanamsa(self) -> None:
-        """Test planet positions with ayanamsa adjustment."""
-        lat = 12.97
-        lon = 77.59
-        test_time = datetime(2023, 12, 31, 18, 30, 0, tzinfo=pytz.UTC)
-        ayanamsa = 24.19166667
-
-        result_tropical = get_planets_position([], lat, lon, test_time, ayanamsa=None)
-        result_sidereal = get_planets_position([], lat, lon, test_time, ayanamsa=ayanamsa)
-
-        # Check that positions differ by approximately the ayanamsa
-        for planet in [Planets.SUN, Planets.MOON, Planets.MARS]:
-            if planet in result_tropical and planet in result_sidereal:
-                trop_lon = result_tropical[planet][1]
-                sid_lon = result_sidereal[planet][1]
-                # Difference should be close to ayanamsa (accounting for wrapping)
-                diff = abs(trop_lon - sid_lon)
-                assert abs(diff - ayanamsa) < 1.0 or abs(diff - ayanamsa + 360) < 1.0
 
     @pytest.mark.unit
     def test_get_all_planet_positions_ascendant_included(self) -> None:
@@ -261,10 +291,10 @@ class TestGetAllPlanetPositions:
         result = get_planets_position([], lat, lon, test_time)
 
         assert Planets.ASCENDANT in result
-        asc_lat, asc_lon, asc_dist = result[Planets.ASCENDANT]
-        assert asc_lat == 0.0  # Ascendant latitude should be 0
-        assert 0 <= asc_lon <= 360  # Longitude should be in valid range
-        assert asc_dist == 0.0  # Ascendant distance should be 0
+        asc_pos = result[Planets.ASCENDANT]
+        assert asc_pos.latitude == 0.0  # Ascendant latitude should be 0
+        assert 0 <= asc_pos.longitude <= 360  # Longitude should be in valid range
+        assert asc_pos.distance == 0.0  # Ascendant distance should be 0
 
     @pytest.mark.unit
     def test_get_all_planet_positions_lunar_nodes_zero_latitude(self) -> None:
@@ -275,10 +305,10 @@ class TestGetAllPlanetPositions:
 
         result = get_planets_position([], lat, lon, test_time)
 
-        assert result[Planets.RAHU][0] == 0.0
-        assert result[Planets.KETHU][0] == 0.0
-        assert result[Planets.RAHU][2] == 0.0
-        assert result[Planets.KETHU][2] == 0.0
+        assert result[Planets.RAHU].latitude == 0.0
+        assert result[Planets.KETHU].latitude == 0.0
+        assert result[Planets.RAHU].distance == 0.0
+        assert result[Planets.KETHU].distance == 0.0
 
 
 class TestPlanetPositionEdgeCases:
@@ -291,11 +321,11 @@ class TestPlanetPositionEdgeCases:
 
         # North pole
         north_pos = get_planet_position(Planets.SUN, 90.0, 0.0, test_time)
-        assert isinstance(north_pos, tuple)
+        assert isinstance(north_pos, PlanetPosition)
 
         # South pole
         south_pos = get_planet_position(Planets.SUN, -90.0, 0.0, test_time)
-        assert isinstance(south_pos, tuple)
+        assert isinstance(south_pos, PlanetPosition)
 
     @pytest.mark.unit
     def test_planet_position_at_dateline(self) -> None:
@@ -306,18 +336,7 @@ class TestPlanetPositionEdgeCases:
         pos2 = get_planet_position(Planets.MOON, 0.0, -180.0, test_time)
 
         # Positions should be very similar (same point on Earth)
-        assert abs(pos1[1] - pos2[1]) < 0.01
-
-    @pytest.mark.unit
-    def test_planet_position_with_negative_ayanamsa(self) -> None:
-        """Test planet position with negative ayanamsa."""
-        test_time = datetime(2026, 1, 1, 0, 0, 0, tzinfo=pytz.UTC)
-
-        pos_positive = get_planet_position(Planets.JUPITER, 0.0, 0.0, test_time, ayanamsa=24.0)
-        pos_negative = get_planet_position(Planets.JUPITER, 0.0, 0.0, test_time, ayanamsa=-24.0)
-
-        # With negative ayanamsa, longitude should increase
-        assert pos_negative[1] > pos_positive[1]
+        assert abs(pos1.longitude - pos2.longitude) < 0.01
 
     @pytest.mark.unit
     @pytest.mark.parametrize("planet", [Planets.SUN, Planets.MOON, Planets.MARS, Planets.MERCURY, Planets.JUPITER, Planets.VENUS, Planets.SATURN])
@@ -325,11 +344,11 @@ class TestPlanetPositionEdgeCases:
         """Test that all major planets return valid positions."""
         test_time = datetime(2026, 1, 1, 0, 0, 0, tzinfo=pytz.UTC)
 
-        lat, lon, dist = get_planet_position(planet, 0.0, 0.0, test_time)
+        result = get_planet_position(planet, 0.0, 0.0, test_time)
 
-        assert -90 <= lat <= 90, f"{planet.name} latitude out of range"
-        assert 0 <= lon <= 360, f"{planet.name} longitude out of range"
-        assert dist > 0, f"{planet.name} distance should be positive"
+        assert -90 <= result.latitude <= 90, f"{planet.name} latitude out of range"
+        assert 0 <= result.longitude <= 360, f"{planet.name} longitude out of range"
+        assert result.distance > 0, f"{planet.name} distance should be positive"
 
     @pytest.mark.unit
     def test_sunrise_sunset_different_dates(self) -> None:
@@ -361,8 +380,8 @@ class TestIsPlanetInRetrograde:
         """Test Mercury is in retrograde during a known retrograde period."""
         # Mercury retrograde: December 13, 2023 - January 1, 2024 (known period)
         check_date = datetime(2023, 12, 20, 12, 0, 0, tzinfo=pytz.UTC)
-        latitude = Angle(degrees=12.97)  # Bengaluru
-        longitude = Angle(degrees=77.59)
+        latitude = 12.97  # Bengaluru
+        longitude = 77.59
 
         is_retrograde, start_date, end_date = is_planet_in_retrograde(check_date, Planets.MERCURY.code, latitude, longitude)
 
@@ -376,8 +395,8 @@ class TestIsPlanetInRetrograde:
         """Test Mercury is not in retrograde during a known direct motion period."""
         # Mercury direct motion period (between retrogrades)
         check_date = datetime(2024, 2, 15, 12, 0, 0, tzinfo=pytz.UTC)
-        latitude = Angle(degrees=28.6139)  # New Delhi
-        longitude = Angle(degrees=77.2090)
+        latitude = 28.6139  # New Delhi
+        longitude = 77.2090
 
         is_retrograde, start_date, end_date = is_planet_in_retrograde(check_date, Planets.MERCURY.code, latitude, longitude)
 
@@ -389,8 +408,8 @@ class TestIsPlanetInRetrograde:
     def test_sun_never_retrograde(self) -> None:
         """Test that Sun is never in retrograde."""
         check_date = datetime(2024, 6, 15, 12, 0, 0, tzinfo=pytz.UTC)
-        latitude = Angle(degrees=28.6139)
-        longitude = Angle(degrees=77.2090)
+        latitude = 28.6139
+        longitude = 77.2090
 
         is_retrograde, start_date, end_date = is_planet_in_retrograde(check_date, Planets.SUN.code, latitude, longitude)
 
@@ -402,8 +421,8 @@ class TestIsPlanetInRetrograde:
     def test_moon_never_retrograde(self) -> None:
         """Test that Moon is never in retrograde."""
         check_date = datetime(2024, 6, 15, 12, 0, 0, tzinfo=pytz.UTC)
-        latitude = Angle(degrees=28.6139)
-        longitude = Angle(degrees=77.2090)
+        latitude = 28.6139
+        longitude = 77.2090
 
         is_retrograde, start_date, end_date = is_planet_in_retrograde(check_date, Planets.MOON.code, latitude, longitude)
 
@@ -426,25 +445,6 @@ class TestGetAscendentPosition:
 
         assert isinstance(result, float)
         assert 0 <= result <= 360
-
-    @pytest.mark.unit
-    def test_get_ascendent_position_with_ayanamsa(self) -> None:
-        """Test ascendant calculation with ayanamsa adjustment."""
-        lat = 12.97
-        lon = 77.59
-        test_time = datetime(2023, 12, 31, 18, 30, 0, tzinfo=pytz.UTC)
-        ayanamsa = 24.19166667
-
-        tropical_asc = get_ascendent_position(lat, lon, test_time, ayanamsa=None)
-        sidereal_asc = get_ascendent_position(lat, lon, test_time, ayanamsa=ayanamsa)
-
-        # Sidereal ascendant should differ from tropical by approximately the ayanamsa
-        diff = abs(tropical_asc - sidereal_asc)
-        # Account for wrap-around at 360 degrees
-        if diff > 180:
-            diff = 360 - diff
-
-        assert abs(diff - ayanamsa) < 1.0, f"Difference {diff} should be close to ayanamsa {ayanamsa}"
 
     @pytest.mark.unit
     def test_get_ascendent_position_different_times(self) -> None:
@@ -486,19 +486,6 @@ class TestGetAscendentPosition:
         asc_south = get_ascendent_position(-90.0, 0.0, test_time)
         assert isinstance(asc_south, float)
         assert 0 <= asc_south <= 360
-
-    @pytest.mark.unit
-    def test_get_ascendent_position_with_negative_ayanamsa(self) -> None:
-        """Test ascendant calculation with negative ayanamsa."""
-        lat = 28.6139
-        lon = 77.2090
-        test_time = datetime(2024, 3, 20, 6, 0, 0, tzinfo=pytz.UTC)
-
-        asc_positive = get_ascendent_position(lat, lon, test_time, ayanamsa=24.0)
-        asc_negative = get_ascendent_position(lat, lon, test_time, ayanamsa=-24.0)
-
-        # With negative ayanamsa, ascendant longitude should increase
-        assert asc_negative != asc_positive
 
 
 class TestGetPlanetsPositionWithSpecificList:
@@ -549,8 +536,8 @@ class TestGetPlanetsPositionWithSpecificList:
         assert Planets.KETHU in result
 
         # Verify they are 180 degrees apart
-        rahu_lon = result[Planets.RAHU][1]
-        kethu_lon = result[Planets.KETHU][1]
+        rahu_lon = result[Planets.RAHU].longitude
+        kethu_lon = result[Planets.KETHU].longitude
         diff = abs(rahu_lon - kethu_lon)
         if diff > 180:
             diff = 360 - diff
@@ -568,30 +555,8 @@ class TestGetPlanetsPositionWithSpecificList:
 
         assert len(result) == 1
         assert Planets.ASCENDANT in result
-        assert result[Planets.ASCENDANT][0] == 0.0  # latitude
-        assert result[Planets.ASCENDANT][2] == 0.0  # distance
-
-    @pytest.mark.unit
-    def test_get_planets_position_with_ayanamsa_specific_planets(self) -> None:
-        """Test planet positions with ayanamsa for specific planets."""
-        lat = 12.97
-        lon = 77.59
-        test_time = datetime(2023, 12, 31, 18, 30, 0, tzinfo=pytz.UTC)
-        ayanamsa = 24.19166667
-        planets = [Planets.SUN, Planets.MERCURY, Planets.SATURN]
-
-        result_tropical = get_planets_position(planets, lat, lon, test_time, ayanamsa=None)
-        result_sidereal = get_planets_position(planets, lat, lon, test_time, ayanamsa=ayanamsa)
-
-        assert len(result_tropical) == 3
-        assert len(result_sidereal) == 3
-
-        # Check that positions differ by approximately the ayanamsa
-        for planet in planets:
-            trop_lon = result_tropical[planet][1]
-            sid_lon = result_sidereal[planet][1]
-            diff = abs(trop_lon - sid_lon)
-            assert abs(diff - ayanamsa) < 1.0 or abs(diff - ayanamsa + 360) < 1.0
+        assert result[Planets.ASCENDANT].latitude == 0.0  # latitude
+        assert result[Planets.ASCENDANT].distance == 0.0  # distance
 
     @pytest.mark.unit
     def test_get_planets_position_empty_list_returns_all(self) -> None:
