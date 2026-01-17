@@ -5,11 +5,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://dhuruvah-apps.github.io/ndastro-core/)
 
-A modern Python library for Vedic and Western astronomical calculations, built on top of [Skyfield](https://rhodesmill.org/skyfield/). ndastro-engine provides a clean, intuitive API for computing planetary positions, sunrise/sunset times, lunar nodes (Rahu/Kethu), ascendant, and other astronomical events for any location on Earth.
+A modern Python library for Vedic astronomical calculations, built on top of [Skyfield](https://rhodesmill.org/skyfield/). ndastro-engine provides a clean, intuitive API for computing planetary positions, sunrise/sunset times, lunar nodes (Rahu/Kethu), ascendant, and other astronomical events for any location on Earth.
 
 ## Features
 
-- 🪐 **Planetary Positions** - Calculate positions for Sun, Moon, Mars, Mercury, Jupiter, Venus, and Saturn
+- 🪐 **Planetary Positions** - Calculate positions for Sun, Moon, Mars, Mercury, Jupiter, Venus, and Saturn. Calculations are based on Geocentric - Apparent positions with wobbling True Nodes. 
 - 🚀 **Planetary Velocities** - Get speed components (longitude, latitude, distance rates) for all planets
 - 🌅 **Sunrise & Sunset** - Accurate sunrise and sunset times for any location
 - 🌙 **Lunar Nodes** - Rahu (North Node) and Kethu (South Node) calculations
@@ -21,7 +21,7 @@ A modern Python library for Vedic and Western astronomical calculations, built o
   - Additional: Madhava, Vishnu, True ayanamsa
 - 🌍 **WGS84 Coordinates** - Support for standard latitude/longitude coordinates
 - 📅 **Date-based Queries** - Calculate astronomical events for any date and time
-- 🎯 **High Precision** - Powered by Skyfield using JPL ephemeris data (DE440t)
+- 🎯 **High Precision** - Powered by Skyfield using JPL ephemeris data (DE440s)
 - ✅ **Verified Accuracy** - All ayanamsa values verified against astro-seek.com reference
 - 🔧 **Easy Configuration** - Automatic ephemeris data management
 - 📦 **Modern Python** - Full type hints, clean API, and comprehensive test coverage
