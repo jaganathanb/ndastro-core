@@ -13,7 +13,7 @@ from skyfield.timelib import Time
 from skyfield.toposlib import wgs84
 
 from ndastro_engine.config import eph, ts
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.enums import Planets
 from ndastro_engine.models import PlanetPosition
 from ndastro_engine.utils import normalize_degree
 

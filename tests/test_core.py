@@ -12,7 +12,7 @@ from ndastro_engine.core import (
     get_sunrise_sunset,
     is_planet_in_retrograde,
 )
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.enums import Planets
 from ndastro_engine.models import PlanetPosition
 
 

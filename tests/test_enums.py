@@ -2,7 +2,7 @@
 
 import pytest
 
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.enums import Planets
 
 
 class TestPlanetsEnum:

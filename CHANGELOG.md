@@ -5,21 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-01-18
+
+### Added
+
+### Changed
+- Enums package `__init__.py` for cleaner imports
+- **Breaking**:
+- Simplified imports: Use `from ndastro_engine.enums import Planets` instead of `from ndastro_engine.enums.planet_enum import Planets`
+
+
+
+
 ## [0.7.0] - 2026-01-14
 
 ### Added
 - `PlanetPosition` named tuple to represent planet positions with velocity components
 - Speed attributes for planetary motion: `speed_latitude`, `speed_longitude`, and `speed_distance`
 - Tests for speed attributes and planetary motion rates
+- Comprehensive test suite with 65+ unit tests achieving 96.80% code coverage
 
 ### Changed
 - **Breaking**: `get_planet_position()` now returns `PlanetPosition` named tuple instead of plain tuple
 - **Breaking**: `get_planets_position()` now returns `dict[Planets, PlanetPosition]` instead of tuples
+- **Breaking**: Removed `ayanamsa` parameter from `get_planet_position()` and `get_planets_position()` - use separate ayanamsa calculation functions instead
+- **Breaking**: `is_planet_in_retrograde()` now accepts float `latitude` and `longitude` instead of Skyfield `Angle` objects
+- Simplified imports: Use `from ndastro_engine.enums import Planets` instead of `from ndastro_engine.enums.planet_enum import Planets`
+- Updated `get_lunar_node_positions()` to use `ts.from_datetime()` for better datetime handling
 - Improved workflow conditions for `create-tag` job (PR merge or manual dispatch)
+- Enhanced frame calculation using `ecliptic_frame` for consistency
 
 ### Fixed
 - Corrected attribute access in all tests to use named tuple attributes
 - Fixed edge case handling for polar coordinates and international dateline
+- Fixed speed rate calculations to properly cast Rate objects to float using `.per_day`
 
 ## [0.5.0] - 2026-01-11
 

@@ -56,7 +56,7 @@ The documentation includes:
 from datetime import datetime
 import pytz
 from ndastro_engine.core import get_planet_position, get_planets_position, get_sunrise_sunset
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.enums import Planets  # Simplified import
 
 # Define location (New York City)
 latitude = 40.7128
@@ -113,7 +113,7 @@ print(f"Fagan-Bradley Ayanamsa: {fagan:.4f}°")
 from datetime import datetime
 import pytz
 from ndastro_engine.core import get_planet_position
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.enums import Planets
 from ndastro_engine.ayanamsa import get_lahiri_ayanamsa
 
 # Location: Mumbai, India
@@ -122,17 +122,14 @@ lon = 72.8777
 time = datetime(2026, 1, 15, 12, 0, 0, tzinfo=pytz.UTC)
 
 # Get Jupiter's position (tropical)
-lat_jupiter, lon_jupiter, dist_jupiter = get_planet_position(
-    Planets.JUPITER, lat, lon, time
-)
-print(f"Jupiter (Tropical): {lon_jupiter:.2f}°")
+position = get_planet_position(Planets.JUPITER, lat, lon, time)
+print(f"Jupiter (Tropical): {position.longitude:.2f}°")
+print(f"  Speed: {position.speed_longitude:+.4f}°/day")
 
-# Get Jupiter's position (sidereal/Vedic with Lahiri ayanamsa)
+# For sidereal/Vedic positions, calculate ayanamsa separately
 ayanamsa = get_lahiri_ayanamsa(time)
-lat_jupiter, lon_jupiter, dist_jupiter = get_planet_position(
-    Planets.JUPITER, lat, lon, time, ayanamsa=ayanamsa
-)
-print(f"Jupiter (Sidereal): {lon_jupiter:.2f}°")
+sidereal_longitude = position.longitude - ayanamsa
+print(f"Jupiter (Sidereal): {sidereal_longitude:.2f}°")
 ```
 
 ### Get All Planetary Positions at Once
@@ -141,7 +138,7 @@ print(f"Jupiter (Sidereal): {lon_jupiter:.2f}°")
 from datetime import datetime
 import pytz
 from ndastro_engine.core import get_planets_position
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.enums import Planets
 
 lat = 51.5074  # London
 lon = -0.1278
@@ -212,7 +209,7 @@ This data is approximately 150 MB and only needs to be downloaded once.
 
 ## API Reference
 
-### `get_planet_position(planet, lat, lon, given_time, ayanamsa=None)`
+### `get_planet_position(planet, lat, lon, given_time)`
 
 Calculate the position of a specific planet.
 
@@ -221,7 +218,6 @@ Calculate the position of a specific planet.
 - `lat` (float): Latitude of the observer in decimal degrees
 - `lon` (float): Longitude of the observer in decimal degrees
 - `given_time` (datetime): The datetime of observation in UTC
-- `ayanamsa` (float, optional): Ayanamsa value for sidereal calculations
 
 **Returns:**
 - `PlanetPosition`: Named tuple with attributes:
@@ -237,28 +233,26 @@ Calculate the position of a specific planet.
 from datetime import datetime
 import pytz
 from ndastro_engine.core import get_planet_position
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.enums import Planets
 
 position = get_planet_position(
     Planets.MARS, 
     34.0522, -118.2437,  # Los Angeles
-    datetime(2026, 3, 20, tzinfo=pytz.UTC),
-    ayanamsa=24.19  # Optional: for sidereal zodiac
+    datetime(2026, 3, 20, tzinfo=pytz.UTC)
 )
 print(f"Mars longitude: {position.longitude:.2f}°")
 print(f"Mars speed: {position.speed_longitude:+.4f}°/day")
 ```
 
-### `get_planets_position(planets, lat, lon, given_time, ayanamsa=None)`
+### `get_planets_position(planets, lat, lon, given_time)`
 
 Calculate positions for all planets, including Rahu, Kethu, and Ascendant.
 
 **Parameters:**
-- `planets` (list[Planets]): List of planets
+- `planets` (list[Planets]): List of planets to calculate (empty list returns all planets)
 - `lat` (float): Latitude of the observer in decimal degrees
 - `lon` (float): Longitude of the observer in decimal degrees
 - `given_time` (datetime): The datetime of observation in UTC
-- `ayanamsa` (float, optional): Ayanamsa value for sidereal calculations
 
 **Returns:**
 - `dict[Planets, PlanetPosition]`: Dictionary mapping each planet to its PlanetPosition named tuple
