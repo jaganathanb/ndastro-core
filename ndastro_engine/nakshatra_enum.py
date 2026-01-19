@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.planet_enum import Planets
 
 
 class Natchaththirams(Enum):

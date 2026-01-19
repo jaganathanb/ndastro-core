@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.planet_enum import Planets
 
 
 class Rasis(IntEnum):

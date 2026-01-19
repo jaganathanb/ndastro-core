@@ -2,7 +2,7 @@
 
 from enum import IntEnum
 
-from ndastro_engine.enums.planet_enum import Planets
+from ndastro_engine.planet_enum import Planets
 
 
 class Houses(IntEnum):
@@ -53,3 +53,6 @@ class Houses(IntEnum):
             12: Planets.JUPITER,
         }
         return house_to_planet[self.value]
+
+
+__all__ = ["Houses"]

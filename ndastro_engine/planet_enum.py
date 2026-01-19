@@ -115,3 +115,6 @@ class Planets(IntEnum):
         }
 
         return planet_colors.get(self, "#000000")  # Default to Black
+
+
+__all__ = ["Planets"]
