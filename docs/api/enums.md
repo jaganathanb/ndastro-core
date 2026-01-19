@@ -2,7 +2,7 @@
 
 ## Planet Enum
 
-::: ndastro_engine.enums.planet_enum
+::: ndastro_engine.enums
     options:
       show_root_heading: true
       show_source: true
@@ -10,7 +10,7 @@
 
 ## House Enum
 
-::: ndastro_engine.enums.house_enum
+::: ndastro_engine.enums
     options:
       show_root_heading: true
       show_source: true
@@ -18,7 +18,7 @@
 
 ## Nakshatra Enum
 
-::: ndastro_engine.enums.nakshatra_enum
+::: ndastro_engine.enums
     options:
       show_root_heading: true
       show_source: true
@@ -26,7 +26,7 @@
 
 ## Rasi Enum
 
-::: ndastro_engine.enums.rasi_enum
+::: ndastro_engine.enums
     options:
       show_root_heading: true
       show_source: true
